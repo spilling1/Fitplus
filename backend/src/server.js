@@ -12,6 +12,8 @@
 // Zero npm dependencies — built-in http + global fetch.
 
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const provider = require('./provider');
 const { COACH_SYSTEM, CHAT_SYSTEM, buildPlanGenerationMessage } = require('./prompts');
 const { validateShape, applyGuardrails, clampProgression, PlanValidationError } = require('./guardrails');
@@ -155,6 +157,15 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
   try {
+    // Serve the click-through web tester so you can drive the whole loop in a
+    // browser with no app/Flutter setup — just open http://localhost:8080/.
+    if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/tester')) {
+      const file = path.join(__dirname, '..', 'public', 'tester.html');
+      const html = fs.readFileSync(file);
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      return res.end(html);
+    }
+
     if (req.method === 'GET' && url.pathname === '/health') {
       return sendJson(res, 200, {
         ok: true,

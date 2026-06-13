@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FitPlus Tester</title>
+<style>
+  :root { --teal:#2E7D6B; --bg:#f6f7f5; --card:#fff; --line:#e3e6e2; --muted:#6b726c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:#1c241f; }
+  header { background:var(--teal); color:#fff; padding:16px 20px; display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:18px; margin:0; }
+  .dot { width:10px; height:10px; border-radius:50%; background:#bbb; }
+  .dot.ok { background:#7CFF9B; } .dot.bad { background:#ff6b6b; }
+  main { max-width:760px; margin:0 auto; padding:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:18px; }
+  h2 { font-size:15px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 14px; }
+  label { font-size:13px; color:var(--muted); display:block; margin:10px 0 4px; }
+  input, select { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; width:100%; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:1px solid var(--line); border-radius:20px; padding:6px 12px; cursor:pointer; user-select:none; font-size:14px; background:#fff; }
+  .chip.on { background:var(--teal); color:#fff; border-color:var(--teal); }
+  button { font:inherit; font-weight:600; background:var(--teal); color:#fff; border:0; border-radius:10px; padding:11px 16px; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--teal); border:1px solid var(--teal); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:10px; align-items:center; }
+  .grow { flex:1; }
+  .muted { color:var(--muted); font-size:13px; }
+  .warn { background:#fff7e6; border:1px solid #ffe3a3; border-radius:10px; padding:10px; font-size:13px; margin:10px 0; }
+  .session { border:1px solid var(--line); border-radius:10px; padding:12px; margin:10px 0; }
+  .session h3 { margin:0 0 4px; font-size:15px; }
+  .block { margin:8px 0 0; }
+  .block b { font-size:12px; text-transform:uppercase; color:var(--muted); letter-spacing:.04em; }
+  .ex { font-size:14px; padding:2px 0 2px 10px; }
+  .why { font-size:13px; color:var(--muted); font-style:italic; }
+  .rest { color:var(--muted); font-size:14px; }
+  .bubble { padding:9px 13px; border-radius:14px; margin:6px 0; max-width:80%; font-size:14px; white-space:pre-wrap; }
+  .bubble.user { background:var(--teal); color:#fff; margin-left:auto; }
+  .bubble.bot { background:#eef1ee; }
+  .tag { display:inline-block; font-size:11px; background:#eef1ee; color:var(--muted); padding:2px 8px; border-radius:10px; margin-left:8px; }
+  #chatlog { margin-bottom:10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FitPlus — local tester</h1>
+  <span id="dot" class="dot"></span>
+  <span id="status" class="muted" style="color:#dfeee9">checking…</span>
+</header>
+<main>
+
+  <div class="card">
+    <h2>1 · Your profile</h2>
+    <label>Experience level</label>
+    <select id="level">
+      <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+    </select>
+
+    <label>Training days</label>
+    <div class="chips" id="days"></div>
+
+    <label>Session length (minutes)</label>
+    <input id="minutes" type="number" value="45" min="15" max="90" />
+
+    <label>Equipment you have (none = bodyweight only)</label>
+    <div class="chips" id="equip"></div>
+
+    <label>Injuries / limitations (comma separated, optional)</label>
+    <input id="injuries" placeholder="e.g. bad knees, lower-back" />
+
+    <div style="margin-top:16px" class="row">
+      <button id="gen">Generate my week</button>
+      <span id="genmsg" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card" id="planCard" style="display:none">
+    <h2>2 · Your plan <span id="src" class="tag"></span></h2>
+    <div id="warnings"></div>
+    <p class="why" id="weekWhy"></p>
+    <div id="plan"></div>
+  </div>
+
+  <div class="card" id="chatCard" style="display:none">
+    <h2>3 · Talk to your coach</h2>
+    <div id="chatlog"></div>
+    <div class="row">
+      <input id="chatInput" class="grow" placeholder='e.g. "make it harder" or "why these exercises?"' />
+      <button id="send">Send</button>
+    </div>
+    <p class="muted" style="margin-top:8px">Try: “I only have 30 minutes today”, “swap the squats, my knee hurts”, “make next week easier”.</p>
+  </div>
+
+</main>
+
+<script>
+const API = location.origin; // served by the backend, so same origin
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const EQUIP = ['dumbbells','barbell','kettlebells','resistance bands','pull-up bar','bench','squat rack','cable machine','treadmill','medicine ball','yoga mat','jump rope'];
+const sel = { days:new Set(['Monday','Wednesday','Friday']), equip:new Set(['dumbbells']) };
+let currentPlan = null;
+const history = [];
+
+function chips(containerId, items, set, labelFn) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  items.forEach(it => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (set.has(it) ? ' on' : '');
+    c.textContent = labelFn ? labelFn(it) : it;
+    c.onclick = () => { set.has(it) ? set.delete(it) : set.add(it); chips(containerId, items, set, labelFn); };
+    el.appendChild(c);
+  });
+}
+chips('days', DAYS, sel.days, d => d.slice(0,3));
+chips('equip', EQUIP, sel.equip);
+
+async function health() {
+  try {
+    const r = await fetch(API + '/health'); const j = await r.json();
+    document.getElementById('dot').className = 'dot ok';
+    document.getElementById('status').textContent =
+      j.ai ? ('AI on · ' + j.provider + ' (' + j.model + ')') : 'offline stub mode — set a provider key for real AI';
+  } catch(e) {
+    document.getElementById('dot').className = 'dot bad';
+    document.getElementById('status').textContent = 'backend not reachable';
+  }
+}
+health();
+
+function profile() {
+  return {
+    level: document.getElementById('level').value,
+    goals: ['build strength','general health'],
+    trainingDays: DAYS.filter(d => sel.days.has(d)),
+    sessionMinutes: parseInt(document.getElementById('minutes').value) || 45,
+    injuries: document.getElementById('injuries').value.split(',').map(s=>s.trim()).filter(Boolean),
+  };
+}
+
+function renderPlan(plan, warnings, source) {
+  currentPlan = plan;
+  document.getElementById('planCard').style.display = '';
+  document.getElementById('chatCard').style.display = '';
+  document.getElementById('src').textContent = source || '';
+  document.getElementById('weekWhy').textContent = plan.rationale;
+  const w = document.getElementById('warnings');
+  w.innerHTML = (warnings && warnings.length)
+    ? '<div class="warn"><b>Adjustments I made:</b><br>' + warnings.map(x=>'• '+x).join('<br>') + '</div>' : '';
+  const out = document.getElementById('plan');
+  out.innerHTML = '';
+  plan.sessions.forEach(s => {
+    const d = document.createElement('div');
+    if (s.type === 'rest') { d.className='session'; d.innerHTML = '<div class="rest"><b>'+s.day+'</b> · Rest — '+s.rationale+'</div>'; out.appendChild(d); return; }
+    d.className = 'session';
+    let html = '<h3>'+s.day+' · '+s.focus+' <span class="muted">(~'+(s.estimated_minutes||'?')+' min)</span></h3>';
+    html += '<div class="why">'+s.rationale+'</div>';
+    s.blocks.forEach(b => {
+      html += '<div class="block"><b>'+b.kind+'</b>';
+      b.exercises.forEach(e => {
+        const dose = e.timed ? ((e.sets?e.sets+' × ':'')+(e.duration_sec||0)+'s')
+          : (e.sets+' × '+e.reps+((e.target_load&&e.target_load!=='bodyweight')?' @ '+e.target_load:''));
+        html += '<div class="ex">• '+e.name+' — '+dose+'</div>';
+      });
+      html += '</div>';
+    });
+    d.innerHTML = html;
+    out.appendChild(d);
+  });
+}
+
+document.getElementById('gen').onclick = async () => {
+  const btn = document.getElementById('gen'); const msg = document.getElementById('genmsg');
+  btn.disabled = true; msg.textContent = 'thinking…';
+  try {
+    const r = await fetch(API + '/api/plan/generate', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ profile: profile(), equipment: DAYS && [...sel.equip] })
+    });
+    const j = await r.json();
+    renderPlan(j.plan, j.warnings, j.source);
+    msg.textContent = '';
+  } catch(e) { msg.textContent = 'failed: ' + e.message; }
+  btn.disabled = false;
+};
+
+function addBubble(text, who, changed) {
+  const el = document.getElementById('chatlog');
+  const b = document.createElement('div');
+  b.className = 'bubble ' + who;
+  b.textContent = text + (changed ? '  ✏️ (plan updated)' : '');
+  el.appendChild(b);
+  el.scrollTop = el.scrollHeight;
+}
+
+document.getElementById('send').onclick = sendChat;
+document.getElementById('chatInput').addEventListener('keydown', e => { if (e.key==='Enter') sendChat(); });
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !currentPlan) return;
+  addBubble(text, 'user'); input.value='';
+  const send = document.getElementById('send'); send.disabled = true;
+  try {
+    const r = await fetch(API + '/api/chat', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ currentPlan, history, message: text, equipment:[...sel.equip] })
+    });
+    const j = await r.json();
+    addBubble(j.reply, 'bot', !!j.updatedPlan);
+    history.push({role:'user', content:text});
+    history.push({role:'assistant', content:j.reply});
+    if (j.updatedPlan) renderPlan(j.updatedPlan, j.warnings, document.getElementById('src').textContent);
+  } catch(e) { addBubble('Error: '+e.message, 'bot'); }
+  send.disabled = false;
+}
+</script>
+</body>
+</html>
