@@ -1,0 +1,30 @@
+name: fitplus
+description: "FitPlus — an adaptive AI personal trainer in your pocket."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # State management (PRD §7 — Riverpod, codegen-free Notifier API).
+  flutter_riverpod: ^2.6.1
+  # Typed networking to the backend AI proxy.
+  http: ^1.2.2
+  # Offline-first local persistence.
+  shared_preferences: ^2.3.3
+  # Charts for progress tracking (PRD §5.6).
+  fl_chart: ^0.69.0
+  # Date formatting + future i18n.
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

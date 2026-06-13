@@ -1,0 +1,11 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    avoid_print: true
+
+analyzer:
+  errors:
+    # Keep generated-free models tidy without failing the build on info-level hints.
+    deprecated_member_use: warning
