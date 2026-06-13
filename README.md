@@ -44,8 +44,14 @@ npm test                    # runs the smoke tests (no key needed)
 **No API key?** The backend runs in **offline stub mode**: it still generates
 valid, safe, equipment-aware plans deterministically so the whole app works for
 development and demos. AI chat and adaptive personalisation switch on the moment
-you set `ANTHROPIC_API_KEY`. It uses `claude-opus-4-8` with structured outputs and
-adaptive thinking; the provider is isolated behind one file so it's swappable.
+you set a provider key.
+
+**Provider is swappable** (PRD §6). Set `OPENAI_API_KEY` to use OpenAI (default,
+`gpt-4o`, JSON-schema structured outputs) or `ANTHROPIC_API_KEY` to use Claude
+(`claude-opus-4-8`). If both are set, OpenAI wins; force a choice with
+`FITPLUS_PROVIDER=openai|anthropic`. Each provider is one isolated file
+(`backend/src/{openai,anthropic}.js`) behind a common interface, selected in
+`backend/src/provider.js`.
 
 ### 2. App
 

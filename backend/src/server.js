@@ -12,7 +12,7 @@
 // Zero npm dependencies — built-in http + global fetch.
 
 const http = require('http');
-const provider = require('./anthropic');
+const provider = require('./provider');
 const { COACH_SYSTEM, CHAT_SYSTEM, buildPlanGenerationMessage } = require('./prompts');
 const { validateShape, applyGuardrails, clampProgression, PlanValidationError } = require('./guardrails');
 const { generateStubPlan, isoMonday } = require('./stub');
@@ -156,7 +156,12 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (req.method === 'GET' && url.pathname === '/health') {
-      return sendJson(res, 200, { ok: true, ai: provider.hasApiKey(), model: provider.MODEL });
+      return sendJson(res, 200, {
+        ok: true,
+        ai: provider.hasApiKey(),
+        provider: provider.NAME,
+        model: provider.MODEL,
+      });
     }
 
     if (req.method === 'POST' && (url.pathname === '/api/plan/generate' || url.pathname === '/api/plan/adapt')) {

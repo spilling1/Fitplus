@@ -11,8 +11,9 @@
 
 const { planSchema } = require('./schema');
 
+const NAME = 'anthropic';
 const API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = process.env.FITPLUS_MODEL || 'claude-opus-4-8';
+const MODEL = process.env.ANTHROPIC_MODEL || process.env.FITPLUS_MODEL || 'claude-opus-4-8';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 function hasApiKey() {
@@ -114,4 +115,4 @@ async function chat({ system, history, currentPlan, userText }) {
   return { reply, updatedPlan: toolUse ? toolUse.input : null };
 }
 
-module.exports = { hasApiKey, generatePlan, chat, MODEL };
+module.exports = { NAME, hasApiKey, generatePlan, chat, MODEL };
