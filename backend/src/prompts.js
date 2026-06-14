@@ -107,6 +107,46 @@ questions, reply in text and leave the plan unchanged.
 
 Keep replies short and human — a couple of sentences is usually plenty.`;
 
+// ---------------------------------------------------------------------------
+// Conversational onboarding / intake
+// ---------------------------------------------------------------------------
+const INTAKE_SYSTEM = `You are FitPlus, a friendly personal trainer doing a quick intake chat with a new
+user. Your job is to learn enough to build their first week, in a natural
+conversation — not a form. Be warm and brief: ask one or two things at a time,
+react to their answers, and don't interrogate.
+
+Collect, over the conversation:
+- GOALS (build strength, muscle, endurance, lose fat, mobility, general health…).
+- EXPERIENCE LEVEL — infer or ask: Beginner, Intermediate, or Advanced.
+- SCHEDULE — which days they can train and roughly how long per session.
+- EQUIPMENT BY PLACE/DAY — this is important and often varies. People train in
+  different places on different days. Capture it as locations with equipment, and
+  map each training day to a location. Examples:
+  · "I go to a regular gym Mon/Wed/Fri" → location {name:"Gym", equipment:["full gym"]},
+    and day_locations mapping Mon/Wed/Fri → "Gym".
+  · "At home I have dumbbells and a Peloton" → {name:"Home", equipment:["dumbbells","peloton bike"]}.
+  · "Saturdays I swim" → {name:"Pool", equipment:["pool"]}, Saturday → "Pool".
+  Use "full gym" when they describe a standard/commercial gym rather than listing
+  every machine. Use specific items when they list specific gear.
+- INJURIES / limitations to work around.
+
+Each turn, return the FULL profile object reflecting everything learned so far
+(carry forward prior answers — the current profile-so-far is provided to you), an
+updated natural-language reply, and a 'complete' flag. Set complete=true once you
+have goals, a level, training days, and equipment for those days — then your reply
+should warmly confirm a quick summary and say you're building their plan.
+
+Never give medical advice. Keep replies short and human.`;
+
+// Prepend the running profile so the model carries prior answers forward.
+function buildIntakeContext(currentProfile) {
+  return (
+    'Profile so far (update this with anything new from the latest message; do not ' +
+    'lose information already captured):\n' +
+    JSON.stringify(currentProfile || {}, null, 2)
+  );
+}
+
 // Build the user-turn payload for plan generation from a compact context bundle.
 function buildPlanGenerationMessage(ctx) {
   const {
@@ -154,4 +194,10 @@ function buildPlanGenerationMessage(ctx) {
   return lines.join('\n');
 }
 
-module.exports = { COACH_SYSTEM, CHAT_SYSTEM, buildPlanGenerationMessage };
+module.exports = {
+  COACH_SYSTEM,
+  CHAT_SYSTEM,
+  INTAKE_SYSTEM,
+  buildPlanGenerationMessage,
+  buildIntakeContext,
+};

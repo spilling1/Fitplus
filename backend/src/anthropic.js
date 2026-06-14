@@ -9,7 +9,7 @@
 // has zero npm dependencies and runs anywhere Node 18+ is installed. To move to
 // the official @anthropic-ai/sdk later, only this file changes.
 
-const { planSchema } = require('./schema');
+const { planSchema, intakeSchema } = require('./schema');
 
 const NAME = 'anthropic';
 const API_URL = 'https://api.anthropic.com/v1/messages';
@@ -115,4 +115,20 @@ async function chat({ system, history, currentPlan, userText }) {
   return { reply, updatedPlan: toolUse ? toolUse.input : null };
 }
 
-module.exports = { NAME, hasApiKey, generatePlan, chat, MODEL };
+// Conversational intake. Returns structured { reply, complete, profile }.
+async function intake({ system, messages }) {
+  const message = await callMessages({
+    model: MODEL,
+    max_tokens: 4000,
+    thinking: { type: 'adaptive' },
+    system,
+    output_config: { format: { type: 'json_schema', schema: intakeSchema } },
+    messages,
+  });
+  if (message.stop_reason === 'refusal') {
+    return { reply: "Let's keep this about your training — tell me your goals and schedule.", complete: false, profile: null };
+  }
+  return JSON.parse(firstTextBlock(message));
+}
+
+module.exports = { NAME, hasApiKey, generatePlan, chat, intake, MODEL };

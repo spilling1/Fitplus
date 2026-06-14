@@ -15,7 +15,13 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const provider = require('./provider');
-const { COACH_SYSTEM, CHAT_SYSTEM, buildPlanGenerationMessage } = require('./prompts');
+const {
+  COACH_SYSTEM,
+  CHAT_SYSTEM,
+  INTAKE_SYSTEM,
+  buildPlanGenerationMessage,
+  buildIntakeContext,
+} = require('./prompts');
 const { validateShape, applyGuardrails, clampProgression, PlanValidationError } = require('./guardrails');
 const { generateStubPlan, isoMonday } = require('./stub');
 
@@ -154,6 +160,30 @@ async function handleChat(body) {
   return { ...result, warnings };
 }
 
+// Conversational onboarding. The model interviews the user and returns an
+// updated structured profile each turn, with a `complete` flag.
+async function handleIntake(body) {
+  const { messages = [], profile = {} } = body;
+
+  if (!provider.intake || !provider.hasApiKey()) {
+    return {
+      reply:
+        "I'm in offline mode, so I can't do the guided chat right now. Tap “Use a quick form instead” to set up — or set a provider API key on the backend to chat with me.",
+      complete: false,
+      profile: null,
+    };
+  }
+
+  // Carry the profile-so-far forward as context, then the conversation.
+  const wire = [{ role: 'user', content: buildIntakeContext(profile) }, ...messages];
+  try {
+    const result = await provider.intake({ system: INTAKE_SYSTEM, messages: wire });
+    return result;
+  } catch (e) {
+    return { reply: 'Sorry — I had trouble just then. Could you say that again?', complete: false, profile: null };
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return sendJson(res, 204, {});
 
@@ -184,6 +214,12 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, result);
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/intake') {
+      const body = await readBody(req);
+      const result = await handleIntake(body);
+      return sendJson(res, 200, result);
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/chat') {
       const body = await readBody(req);
       const result = await handleChat(body);
@@ -203,4 +239,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, handleGenerate, handleChat };
+module.exports = { server, handleGenerate, handleChat, handleIntake };

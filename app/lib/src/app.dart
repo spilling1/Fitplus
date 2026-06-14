@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'state/providers.dart';
 import 'theme.dart';
-import 'screens/onboarding_screen.dart';
+import 'screens/intake_screen.dart';
 import 'screens/home_shell.dart';
 
 class FitPlusApp extends ConsumerWidget {
@@ -17,7 +17,7 @@ class FitPlusApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: FitTheme.light(),
       darkTheme: FitTheme.dark(),
-      home: onboarded ? const HomeShell() : const OnboardingScreen(),
+      home: onboarded ? const HomeShell() : const IntakeScreen(),
     );
   }
 }

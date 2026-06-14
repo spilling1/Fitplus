@@ -9,7 +9,7 @@
 // have additionalProperties:false and list all properties in `required` — our
 // planSchema already satisfies that.
 
-const { planSchema } = require('./schema');
+const { planSchema, intakeSchema } = require('./schema');
 
 const NAME = 'openai';
 const API_URL = 'https://api.openai.com/v1/chat/completions';
@@ -114,4 +114,20 @@ async function chat({ system, history, currentPlan, userText }) {
   };
 }
 
-module.exports = { NAME, hasApiKey, generatePlan, chat, MODEL };
+// Conversational intake. messages = full user/assistant history. Returns the
+// structured { reply, complete, profile }.
+async function intake({ system, messages }) {
+  const data = await callChat({
+    model: MODEL,
+    messages: [{ role: 'system', content: system }, ...messages],
+    response_format: jsonSchemaFormat('intake', intakeSchema),
+  });
+  const msg = data.choices && data.choices[0] && data.choices[0].message;
+  if (!msg) throw new Error('OpenAI returned no message');
+  if (msg.refusal) {
+    return { reply: "Let's keep this about your training — tell me your goals and schedule.", complete: false, profile: null };
+  }
+  return JSON.parse(msg.content);
+}
+
+module.exports = { NAME, hasApiKey, generatePlan, chat, intake, MODEL };

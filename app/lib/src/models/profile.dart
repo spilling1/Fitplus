@@ -134,6 +134,51 @@ class Profile {
         'onboarded': onboarded,
       };
 
+  /// Build a Profile from the AI intake's structured object (snake_case, with
+  /// day_locations as an array). Fills sensible defaults for anything missing.
+  factory Profile.fromIntake(Map<String, dynamic> j) {
+    final locs = ((j['locations'] as List?) ?? [])
+        .map((l) => TrainingLocation(
+              name: (l as Map)['name'] as String? ?? 'Anywhere',
+              equipment: (l['equipment'] as List?)?.cast<String>() ?? const [],
+            ))
+        .where((l) => l.name.trim().isNotEmpty)
+        .toList();
+
+    final dayLoc = <String, String>{};
+    for (final d in (j['day_locations'] as List?) ?? []) {
+      final m = d as Map;
+      final day = m['day'] as String?;
+      final loc = m['location'] as String?;
+      if (day != null && loc != null) dayLoc[day] = loc;
+    }
+
+    String level = 'Beginner';
+    final lvl = (j['level'] as String?)?.toLowerCase();
+    if (lvl != null) {
+      for (final c in ['Beginner', 'Intermediate', 'Advanced']) {
+        if (c.toLowerCase() == lvl) level = c;
+      }
+    }
+
+    final days = ((j['training_days'] as List?)?.cast<String>() ?? const [])
+        .where(kWeekDays.contains)
+        .toList();
+
+    return Profile(
+      level: level,
+      goals: (j['goals'] as List?)?.cast<String>() ?? const [],
+      trainingDays: days.isEmpty ? const ['Monday', 'Wednesday', 'Friday'] : days,
+      sessionMinutes: (j['session_minutes'] as int?) ?? 45,
+      injuries: (j['injuries'] as List?)?.cast<String>() ?? const [],
+      notes: j['notes'] as String? ?? '',
+      locations: locs,
+      dayLocation: dayLoc,
+      equipment: {for (final l in locs) ...l.equipment}.toList(),
+      onboarded: true,
+    );
+  }
+
   /// The compact bundle the backend expects under `profile` for generation.
   Map<String, dynamic> toAiContext() => {
         'ageRange': ageRange,

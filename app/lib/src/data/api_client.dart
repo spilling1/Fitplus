@@ -22,6 +22,14 @@ class ChatResult {
   ChatResult(this.reply, this.updatedPlan, this.warnings);
 }
 
+/// Result of one conversational-intake turn.
+class IntakeResult {
+  final String reply;
+  final bool complete;
+  final Map<String, dynamic>? profile; // structured profile-so-far from the AI
+  IntakeResult(this.reply, this.complete, this.profile);
+}
+
 /// Talks to the FitPlus backend AI proxy. The Anthropic key lives on the
 /// backend, never here (PRD §6 critical security rule).
 class ApiClient {
@@ -73,6 +81,29 @@ class ApiClient {
       WeeklyPlan.fromJson(json['plan'] as Map<String, dynamic>),
       ((json['warnings'] as List?) ?? []).cast<String>(),
       json['source'] as String? ?? 'ai',
+    );
+  }
+
+  /// One turn of conversational onboarding. [messages] is the running
+  /// user/assistant history; [profile] is the structured profile gathered so far.
+  Future<IntakeResult> intake({
+    required List<Map<String, String>> messages,
+    required Map<String, dynamic> profile,
+  }) async {
+    final res = await _http
+        .post(_uri('/api/intake'),
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode({'messages': messages, 'profile': profile}))
+        .timeout(const Duration(seconds: 60));
+
+    if (res.statusCode != 200) {
+      throw ApiException('Intake failed (${res.statusCode}).');
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    return IntakeResult(
+      json['reply'] as String? ?? '',
+      json['complete'] as bool? ?? false,
+      json['profile'] as Map<String, dynamic>?,
     );
   }
 

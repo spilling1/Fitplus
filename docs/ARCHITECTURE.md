@@ -54,8 +54,10 @@ Zero npm dependencies — Node's built-in `http` server and global `fetch`. File
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET  | `/health` | liveness + whether AI is enabled |
-| POST | `/api/plan/generate` | first/weekly plan from profile + equipment |
+| GET  | `/health` | liveness + active provider/model |
+| GET  | `/` | the browser web tester |
+| POST | `/api/intake` | conversational onboarding — interviews the user, returns a structured profile (schedule, goals, per-day equipment) + `complete` flag |
+| POST | `/api/plan/generate` | first/weekly plan from profile + (per-day) equipment |
 | POST | `/api/plan/adapt` | same, with a history summary + previous plan for adaptation |
 | POST | `/api/chat` | conversational Q&A and structured plan edits |
 

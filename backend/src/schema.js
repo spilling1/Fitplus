@@ -90,4 +90,61 @@ const planSchema = {
   required: ['week_start', 'rationale', 'sessions'],
 };
 
-module.exports = { planSchema, sessionSchema, blockSchema, exerciseSchema };
+// ---------------------------------------------------------------------------
+// Conversational intake: the AI interviews the user and progressively fills in
+// this structured profile. day_locations is an array (not a map) so it stays
+// strict-structured-output friendly; the app converts it to a weekday->location
+// map. Equipment is free-form strings — "full gym" or specific items.
+// ---------------------------------------------------------------------------
+const intakeProfileSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    level: { type: ['string', 'null'], description: 'Beginner | Intermediate | Advanced, or null if not yet known.' },
+    goals: { type: 'array', items: { type: 'string' } },
+    training_days: { type: 'array', items: { type: 'string' }, description: 'Weekday names: Monday..Sunday.' },
+    session_minutes: { type: ['integer', 'null'] },
+    injuries: { type: 'array', items: { type: 'string' } },
+    notes: { type: 'string' },
+    locations: {
+      type: 'array',
+      description: 'Places the user trains, each with its equipment. Use "full gym" for standard commercial gym access.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          name: { type: 'string' },
+          equipment: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['name', 'equipment'],
+      },
+    },
+    day_locations: {
+      type: 'array',
+      description: 'Which location applies on each training day.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          day: { type: 'string' },
+          location: { type: 'string' },
+        },
+        required: ['day', 'location'],
+      },
+    },
+  },
+  required: ['level', 'goals', 'training_days', 'session_minutes', 'injuries', 'notes', 'locations', 'day_locations'],
+};
+
+const intakeSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    reply: { type: 'string', description: "Your next message to the user — warm, brief, one or two questions at a time." },
+    complete: { type: 'boolean', description: 'true once you have goals, level, training days, and equipment for those days.' },
+    profile: intakeProfileSchema,
+  },
+  required: ['reply', 'complete', 'profile'],
+};
+
+module.exports = { planSchema, sessionSchema, blockSchema, exerciseSchema, intakeSchema, intakeProfileSchema };
