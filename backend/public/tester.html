@@ -12,68 +12,56 @@
   header h1 { font-size:18px; margin:0; }
   .dot { width:10px; height:10px; border-radius:50%; background:#bbb; }
   .dot.ok { background:#7CFF9B; } .dot.bad { background:#ff6b6b; }
-  main { max-width:760px; margin:0 auto; padding:20px; }
+  main { max-width:780px; margin:0 auto; padding:20px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:18px; }
   h2 { font-size:15px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 14px; }
-  label { font-size:13px; color:var(--muted); display:block; margin:10px 0 4px; }
-  input, select { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; width:100%; }
-  .chips { display:flex; flex-wrap:wrap; gap:8px; }
-  .chip { border:1px solid var(--line); border-radius:20px; padding:6px 12px; cursor:pointer; user-select:none; font-size:14px; background:#fff; }
-  .chip.on { background:var(--teal); color:#fff; border-color:var(--teal); }
+  .muted { color:var(--muted); font-size:13px; }
   button { font:inherit; font-weight:600; background:var(--teal); color:#fff; border:0; border-radius:10px; padding:11px 16px; cursor:pointer; }
   button.secondary { background:#fff; color:var(--teal); border:1px solid var(--teal); }
   button:disabled { opacity:.5; cursor:default; }
+  input, textarea { font:inherit; padding:9px 11px; border:1px solid var(--line); border-radius:8px; width:100%; }
   .row { display:flex; gap:10px; align-items:center; }
   .grow { flex:1; }
-  .muted { color:var(--muted); font-size:13px; }
   .warn { background:#fff7e6; border:1px solid #ffe3a3; border-radius:10px; padding:10px; font-size:13px; margin:10px 0; }
   .session { border:1px solid var(--line); border-radius:10px; padding:12px; margin:10px 0; }
   .session h3 { margin:0 0 4px; font-size:15px; }
-  .block { margin:8px 0 0; }
-  .block b { font-size:12px; text-transform:uppercase; color:var(--muted); letter-spacing:.04em; }
+  .block { margin:8px 0 0; } .block b { font-size:12px; text-transform:uppercase; color:var(--muted); letter-spacing:.04em; }
   .ex { font-size:14px; padding:2px 0 2px 10px; }
   .why { font-size:13px; color:var(--muted); font-style:italic; }
   .rest { color:var(--muted); font-size:14px; }
-  .bubble { padding:9px 13px; border-radius:14px; margin:6px 0; max-width:80%; font-size:14px; white-space:pre-wrap; }
+  .bubble { padding:9px 13px; border-radius:14px; margin:6px 0; max-width:82%; font-size:14px; white-space:pre-wrap; }
   .bubble.user { background:var(--teal); color:#fff; margin-left:auto; }
   .bubble.bot { background:#eef1ee; }
   .tag { display:inline-block; font-size:11px; background:#eef1ee; color:var(--muted); padding:2px 8px; border-radius:10px; margin-left:8px; }
-  #chatlog { margin-bottom:10px; }
+  .log, .chatlog { margin-bottom:10px; max-height:340px; overflow:auto; }
+  pre { background:#0f1c18; color:#cfe; padding:10px; border-radius:8px; font-size:12px; overflow:auto; }
+  .pill { display:inline-block; background:#eef1ee; border-radius:20px; padding:6px 12px; font-size:13px; margin:0 6px 8px 0; cursor:pointer; }
 </style>
 </head>
 <body>
 <header>
-  <h1>FitPlus — local tester</h1>
+  <h1>FitPlus — tester</h1>
   <span id="dot" class="dot"></span>
   <span id="status" class="muted" style="color:#dfeee9">checking…</span>
 </header>
 <main>
 
+  <!-- 1. Conversational onboarding -->
   <div class="card">
-    <h2>1 · Your profile</h2>
-    <label>Experience level</label>
-    <select id="level">
-      <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
-    </select>
-
-    <label>Training days</label>
-    <div class="chips" id="days"></div>
-
-    <label>Session length (minutes)</label>
-    <input id="minutes" type="number" value="45" min="15" max="90" />
-
-    <label>Equipment you have (none = bodyweight only)</label>
-    <div class="chips" id="equip"></div>
-
-    <label>Injuries / limitations (comma separated, optional)</label>
-    <input id="injuries" placeholder="e.g. bad knees, lower-back" />
-
-    <div style="margin-top:16px" class="row">
-      <button id="gen">Generate my week</button>
-      <span id="genmsg" class="muted"></span>
+    <h2>1 · Set up with your coach (chat)</h2>
+    <div class="chatlog" id="intakeLog"></div>
+    <div id="intakeComplete" style="display:none" class="warn">
+      ✓ Coach has what it needs. <button id="buildBtn" style="margin-left:8px">Build my plan →</button>
     </div>
+    <div class="row" id="intakeComposer">
+      <input id="intakeInput" class="grow" placeholder='e.g. "Get stronger, 4 days/wk. Gym Mon/Wed/Fri, home with dumbbells + Peloton Sat. Bad left knee."' />
+      <button id="intakeSend">Send</button>
+    </div>
+    <p class="muted" style="margin-top:8px">The coach interviews you and extracts a structured profile (schedule + equipment by day). <a href="#" id="toggleProfile">show captured profile</a></p>
+    <pre id="profileJson" style="display:none"></pre>
   </div>
 
+  <!-- 2. Plan -->
   <div class="card" id="planCard" style="display:none">
     <h2>2 · Your plan <span id="src" class="tag"></span></h2>
     <div id="warnings"></div>
@@ -81,80 +69,136 @@
     <div id="plan"></div>
   </div>
 
+  <!-- 3. Coach chat -->
   <div class="card" id="chatCard" style="display:none">
     <h2>3 · Talk to your coach</h2>
-    <div id="chatlog"></div>
+    <div class="chatlog" id="chatLog"></div>
     <div class="row">
-      <input id="chatInput" class="grow" placeholder='e.g. "make it harder" or "why these exercises?"' />
-      <button id="send">Send</button>
+      <input id="chatInput" class="grow" placeholder='"make it harder" · "I only have 30 min" · "swap the squats"' />
+      <button id="chatSend">Send</button>
     </div>
-    <p class="muted" style="margin-top:8px">Try: “I only have 30 minutes today”, “swap the squats, my knee hurts”, “make next week easier”.</p>
+  </div>
+
+  <!-- 4. Weekly check-in -->
+  <div class="card" id="weekCard" style="display:none">
+    <h2>4 · Weekly check-in → adapt next week</h2>
+    <p class="muted">How are you feeling? Anything to change?</p>
+    <div id="feelings"></div>
+    <textarea id="weekChanges" rows="2" placeholder='e.g. "shoulder is niggling, go easier on pressing" or "add more cardio"'></textarea>
+    <div class="row" style="margin-top:10px"><button id="weekBtn">Build next week</button></div>
   </div>
 
 </main>
 
 <script>
-const API = location.origin; // served by the backend, so same origin
-const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const EQUIP = ['dumbbells','barbell','kettlebells','resistance bands','pull-up bar','bench','squat rack','cable machine','treadmill','medicine ball','yoga mat','jump rope'];
-const sel = { days:new Set(['Monday','Wednesday','Friday']), equip:new Set(['dumbbells']) };
+const API = location.origin;
+let aiOn = false;
+let profile = {};
+const intakeMsgs = [];   // {role, content}
 let currentPlan = null;
-const history = [];
+const chatHistory = [];
+let feeling = 'Good';
 
-function chips(containerId, items, set, labelFn) {
-  const el = document.getElementById(containerId);
-  el.innerHTML = '';
-  items.forEach(it => {
-    const c = document.createElement('span');
-    c.className = 'chip' + (set.has(it) ? ' on' : '');
-    c.textContent = labelFn ? labelFn(it) : it;
-    c.onclick = () => { set.has(it) ? set.delete(it) : set.add(it); chips(containerId, items, set, labelFn); };
-    el.appendChild(c);
-  });
-}
-chips('days', DAYS, sel.days, d => d.slice(0,3));
-chips('equip', EQUIP, sel.equip);
+const $ = (id) => document.getElementById(id);
 
 async function health() {
   try {
-    const r = await fetch(API + '/health'); const j = await r.json();
-    document.getElementById('dot').className = 'dot ok';
-    document.getElementById('status').textContent =
-      j.ai ? ('AI on · ' + j.provider + ' (' + j.model + ')') : 'offline stub mode — set a provider key for real AI';
-  } catch(e) {
-    document.getElementById('dot').className = 'dot bad';
-    document.getElementById('status').textContent = 'backend not reachable';
-  }
+    const j = await (await fetch(API + '/health')).json();
+    aiOn = !!j.ai;
+    $('dot').className = 'dot ' + (aiOn ? 'ok' : 'bad');
+    $('status').textContent = aiOn ? ('AI on · ' + j.provider + ' (' + j.model + ')')
+      : 'offline stub — set OPENAI_API_KEY in backend/.env for real chat';
+  } catch(e) { $('dot').className='dot bad'; $('status').textContent='backend not reachable'; }
 }
 health();
 
-function profile() {
+// greeting
+addBubble('intakeLog', "Hi! I'm your FitPlus coach. Tell me what you're after — your goals, how many days a week you can train, and what you have access to where (a gym? gear at home? a pool or Peloton?).", 'bot');
+
+function addBubble(logId, text, who) {
+  const el = $(logId);
+  const b = document.createElement('div');
+  b.className = 'bubble ' + who;
+  b.textContent = text;
+  el.appendChild(b); el.scrollTop = el.scrollHeight;
+}
+
+// ---- 1. Intake ----
+$('intakeSend').onclick = intakeSend;
+$('intakeInput').addEventListener('keydown', e => { if (e.key==='Enter') intakeSend(); });
+$('toggleProfile').onclick = (e) => { e.preventDefault(); const p=$('profileJson'); p.style.display = p.style.display==='none'?'block':'none'; };
+
+async function intakeSend() {
+  const text = $('intakeInput').value.trim();
+  if (!text) return;
+  if (!aiOn) { addBubble('intakeLog', '(Offline — the chat intake needs an API key. You can still test plan generation once a key is set.)', 'bot'); return; }
+  addBubble('intakeLog', text, 'user');
+  intakeMsgs.push({role:'user', content:text});
+  $('intakeInput').value = '';
+  $('intakeSend').disabled = true;
+  try {
+    const j = await (await fetch(API + '/api/intake', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ messages: intakeMsgs, profile })
+    })).json();
+    addBubble('intakeLog', j.reply, 'bot');
+    intakeMsgs.push({role:'assistant', content:j.reply});
+    if (j.profile) { profile = j.profile; $('profileJson').textContent = JSON.stringify(profile, null, 2); }
+    if (j.complete) $('intakeComplete').style.display = 'block';
+  } catch(e) { addBubble('intakeLog', 'Error: ' + e.message, 'bot'); }
+  $('intakeSend').disabled = false;
+}
+
+// ---- Build plan from captured profile ----
+$('buildBtn').onclick = () => generate(false);
+
+function profileToBody() {
+  // Convert intake profile (day_locations array) into the generate payload shape.
+  const locs = profile.locations || [];
+  const byName = {}; locs.forEach(l => byName[l.name] = l.equipment || []);
+  const days = profile.training_days || [];
+  const dayLoc = {}; (profile.day_locations||[]).forEach(d => dayLoc[d.day] = d.location);
+  const equipmentByDay = {};
+  days.forEach(day => {
+    const locName = dayLoc[day] || (locs[0] && locs[0].name);
+    equipmentByDay[day] = byName[locName] || [];
+  });
+  const equipment = [...new Set(locs.flatMap(l => l.equipment || []))];
   return {
-    level: document.getElementById('level').value,
-    goals: ['build strength','general health'],
-    trainingDays: DAYS.filter(d => sel.days.has(d)),
-    sessionMinutes: parseInt(document.getElementById('minutes').value) || 45,
-    injuries: document.getElementById('injuries').value.split(',').map(s=>s.trim()).filter(Boolean),
+    profile: {
+      level: profile.level, goals: profile.goals, trainingDays: days,
+      sessionMinutes: profile.session_minutes, injuries: profile.injuries, notes: profile.notes
+    },
+    equipment, equipmentByDay
   };
+}
+
+async function generate(adapt, adjustment) {
+  const body = profileToBody();
+  if (adapt) { body.history = { previousWeekStart: currentPlan && currentPlan.week_start }; body.previousPlan = currentPlan; }
+  if (adjustment) body.adjustment = adjustment;
+  $('buildBtn').disabled = true; $('weekBtn').disabled = true;
+  try {
+    const j = await (await fetch(API + '/api/plan/generate', {
+      method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)
+    })).json();
+    renderPlan(j.plan, j.warnings, j.source);
+  } catch(e) { alert('Generate failed: ' + e.message); }
+  $('buildBtn').disabled = false; $('weekBtn').disabled = false;
 }
 
 function renderPlan(plan, warnings, source) {
   currentPlan = plan;
-  document.getElementById('planCard').style.display = '';
-  document.getElementById('chatCard').style.display = '';
-  document.getElementById('src').textContent = source || '';
-  document.getElementById('weekWhy').textContent = plan.rationale;
-  const w = document.getElementById('warnings');
-  w.innerHTML = (warnings && warnings.length)
+  $('planCard').style.display = ''; $('chatCard').style.display = ''; $('weekCard').style.display = '';
+  $('src').textContent = source || '';
+  $('weekWhy').textContent = plan.rationale;
+  $('warnings').innerHTML = (warnings && warnings.length)
     ? '<div class="warn"><b>Adjustments I made:</b><br>' + warnings.map(x=>'• '+x).join('<br>') + '</div>' : '';
-  const out = document.getElementById('plan');
-  out.innerHTML = '';
+  const out = $('plan'); out.innerHTML = '';
   plan.sessions.forEach(s => {
-    const d = document.createElement('div');
-    if (s.type === 'rest') { d.className='session'; d.innerHTML = '<div class="rest"><b>'+s.day+'</b> · Rest — '+s.rationale+'</div>'; out.appendChild(d); return; }
-    d.className = 'session';
-    let html = '<h3>'+s.day+' · '+s.focus+' <span class="muted">(~'+(s.estimated_minutes||'?')+' min)</span></h3>';
-    html += '<div class="why">'+s.rationale+'</div>';
+    const d = document.createElement('div'); d.className='session';
+    if (s.type === 'rest') { d.innerHTML = '<div class="rest"><b>'+s.day+'</b> · Rest — '+s.rationale+'</div>'; out.appendChild(d); return; }
+    let html = '<h3>'+s.day+' · '+s.focus+' <span class="muted">(~'+(s.estimated_minutes||'?')+' min)</span></h3><div class="why">'+s.rationale+'</div>';
     s.blocks.forEach(b => {
       html += '<div class="block"><b>'+b.kind+'</b>';
       b.exercises.forEach(e => {
@@ -164,57 +208,46 @@ function renderPlan(plan, warnings, source) {
       });
       html += '</div>';
     });
-    d.innerHTML = html;
-    out.appendChild(d);
+    d.innerHTML = html; out.appendChild(d);
   });
+  window.scrollTo({ top: $('planCard').offsetTop - 10, behavior:'smooth' });
 }
 
-document.getElementById('gen').onclick = async () => {
-  const btn = document.getElementById('gen'); const msg = document.getElementById('genmsg');
-  btn.disabled = true; msg.textContent = 'thinking…';
-  try {
-    const r = await fetch(API + '/api/plan/generate', {
-      method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ profile: profile(), equipment: DAYS && [...sel.equip] })
-    });
-    const j = await r.json();
-    renderPlan(j.plan, j.warnings, j.source);
-    msg.textContent = '';
-  } catch(e) { msg.textContent = 'failed: ' + e.message; }
-  btn.disabled = false;
-};
-
-function addBubble(text, who, changed) {
-  const el = document.getElementById('chatlog');
-  const b = document.createElement('div');
-  b.className = 'bubble ' + who;
-  b.textContent = text + (changed ? '  ✏️ (plan updated)' : '');
-  el.appendChild(b);
-  el.scrollTop = el.scrollHeight;
-}
-
-document.getElementById('send').onclick = sendChat;
-document.getElementById('chatInput').addEventListener('keydown', e => { if (e.key==='Enter') sendChat(); });
-
-async function sendChat() {
-  const input = document.getElementById('chatInput');
-  const text = input.value.trim();
+// ---- 3. Coach chat ----
+$('chatSend').onclick = chatSend;
+$('chatInput').addEventListener('keydown', e => { if (e.key==='Enter') chatSend(); });
+async function chatSend() {
+  const text = $('chatInput').value.trim();
   if (!text || !currentPlan) return;
-  addBubble(text, 'user'); input.value='';
-  const send = document.getElementById('send'); send.disabled = true;
+  addBubble('chatLog', text, 'user'); $('chatInput').value=''; $('chatSend').disabled = true;
   try {
-    const r = await fetch(API + '/api/chat', {
+    const equipment = [...new Set((profile.locations||[]).flatMap(l => l.equipment||[]))];
+    const j = await (await fetch(API + '/api/chat', {
       method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ currentPlan, history, message: text, equipment:[...sel.equip] })
-    });
-    const j = await r.json();
-    addBubble(j.reply, 'bot', !!j.updatedPlan);
-    history.push({role:'user', content:text});
-    history.push({role:'assistant', content:j.reply});
-    if (j.updatedPlan) renderPlan(j.updatedPlan, j.warnings, document.getElementById('src').textContent);
-  } catch(e) { addBubble('Error: '+e.message, 'bot'); }
-  send.disabled = false;
+      body: JSON.stringify({ currentPlan, history: chatHistory, message: text, equipment })
+    })).json();
+    addBubble('chatLog', j.reply + (j.updatedPlan ? '  ✏️ (plan updated)' : ''), 'bot');
+    chatHistory.push({role:'user',content:text}); chatHistory.push({role:'assistant',content:j.reply});
+    if (j.updatedPlan) renderPlan(j.updatedPlan, j.warnings, $('src').textContent);
+  } catch(e) { addBubble('chatLog', 'Error: ' + e.message, 'bot'); }
+  $('chatSend').disabled = false;
 }
+
+// ---- 4. Weekly check-in ----
+['Great','Good','A bit tired','Run-down'].forEach(f => {
+  const el = document.createElement('span'); el.className='pill'; el.textContent=f;
+  if (f===feeling) el.style.background='#cfe7df';
+  el.onclick = () => { feeling=f; document.querySelectorAll('#feelings .pill').forEach(p=>p.style.background='#eef1ee'); el.style.background='#cfe7df'; };
+  $('feelings').appendChild(el);
+});
+$('weekBtn').onclick = () => {
+  const changes = $('weekChanges').value.trim();
+  const parts = ['Weekly check-in. The user is feeling: ' + feeling + '.'];
+  if (changes) parts.push('They asked: "' + changes + '".');
+  if (feeling === 'Run-down') parts.push('Ease off this week — reduce volume/intensity.');
+  if (feeling === 'Great') parts.push('They feel strong — a small progression is welcome if warranted.');
+  generate(true, parts.join(' '));
+};
 </script>
 </body>
 </html>

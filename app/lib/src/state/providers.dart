@@ -133,7 +133,9 @@ class PlanController extends Notifier<GenState> {
 
   /// Generate (or adapt) the week's plan. When [adapt] is true, recent logs are
   /// summarised and sent so the new week reflects what actually happened.
-  Future<void> generate({bool adapt = false}) async {
+  /// [adjustment] carries free-text from the weekly check-in ("ease off this
+  /// week", "I'm feeling great", schedule notes, …).
+  Future<void> generate({bool adapt = false, String? adjustment}) async {
     state = const GenState(loading: true);
     final profile = ref.read(profileProvider);
     final api = ref.read(apiClientProvider);
@@ -144,6 +146,7 @@ class PlanController extends Notifier<GenState> {
         profile: profile,
         history: adapt ? _buildHistorySummary() : null,
         previousPlan: adapt ? previous : null,
+        adjustment: adjustment,
       );
       ref.read(planProvider.notifier).set(result.plan);
       state = GenState(

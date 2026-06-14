@@ -114,6 +114,7 @@ async function run() {
 
   await test('handleGenerate returns a guarded plan in offline mode', async () => {
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
     const result = await handleGenerate(ctx);
     validateShape(result.plan);
     assert.strictEqual(result.source, 'stub');
@@ -130,6 +131,7 @@ async function run() {
 
   await test('chat is gated behind an API key in offline mode', async () => {
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
     const result = await handleChat({ currentPlan: generateStubPlan(ctx), message: 'make it harder' });
     assert.strictEqual(result.updatedPlan, null);
     assert.ok(/offline/i.test(result.reply));

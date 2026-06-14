@@ -36,10 +36,14 @@ progression caps).
 
 ```bash
 cd backend
-cp .env.example .env        # add your ANTHROPIC_API_KEY (optional — see below)
+cp .env.example .env        # then put OPENAI_API_KEY=sk-... in .env (auto-loaded)
 npm start                   # listens on :8080
 npm test                    # runs the smoke tests (no key needed)
 ```
+
+**Where the API key goes:** in `backend/.env` (e.g. `OPENAI_API_KEY=sk-...`), which
+the backend loads automatically on `npm start`. It lives only on the server — never
+in the app. You can also `export OPENAI_API_KEY=...` instead of using `.env`.
 
 **No API key?** The backend runs in **offline stub mode**: it still generates
 valid, safe, equipment-aware plans deterministically so the whole app works for

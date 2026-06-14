@@ -57,6 +57,7 @@ class ApiClient {
     String? weekStart,
     Map<String, dynamic>? history,
     WeeklyPlan? previousPlan,
+    String? adjustment,
   }) async {
     final body = {
       'profile': profile.toAiContext(),
@@ -65,6 +66,7 @@ class ApiClient {
       if (weekStart != null) 'weekStart': weekStart,
       if (history != null) 'history': history,
       if (previousPlan != null) 'previousPlan': previousPlan.toJson(),
+      if (adjustment != null && adjustment.isNotEmpty) 'adjustment': adjustment,
     };
 
     final res = await _http

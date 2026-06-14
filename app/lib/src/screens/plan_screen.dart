@@ -5,6 +5,7 @@ import '../models/plan.dart';
 import '../state/providers.dart';
 import '../widgets/rationale_card.dart';
 import 'session_player_screen.dart';
+import 'weekly_checkin_screen.dart';
 
 /// The week view (PRD §5.3): training + rest days, the week's rationale, and the
 /// entry point into running a session.
@@ -22,7 +23,7 @@ class PlanScreen extends ConsumerWidget {
         actions: [
           if (plan != null)
             TextButton.icon(
-              onPressed: gen.loading ? null : () => _adapt(context, ref),
+              onPressed: gen.loading ? null : () => _checkIn(context),
               icon: const Icon(Icons.auto_awesome),
               label: const Text('Next week'),
             ),
@@ -32,20 +33,25 @@ class PlanScreen extends ConsumerWidget {
           ? const _Loading()
           : plan == null
               ? _EmptyState(onGenerate: () => _generate(ref))
-              : _PlanBody(plan: plan, warnings: gen.warnings, source: gen.source),
+              : _PlanBody(plan: plan, warnings: gen.warnings, source: gen.source, onCheckIn: () => _checkIn(context)),
     );
   }
 
   Future<void> _generate(WidgetRef ref) =>
       ref.read(planControllerProvider.notifier).generate();
 
-  Future<void> _adapt(BuildContext context, WidgetRef ref) async {
-    await ref.read(planControllerProvider.notifier).generate(adapt: true);
-    final err = ref.read(planControllerProvider).error;
-    if (err != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
-    }
+  void _checkIn(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const WeeklyCheckInScreen()),
+    );
   }
+}
+
+/// True once the plan's week has fully elapsed (time for a new week / check-in).
+bool _weekIsOver(String weekStart) {
+  final start = DateTime.tryParse(weekStart);
+  if (start == null) return false;
+  return DateTime.now().isAfter(start.add(const Duration(days: 7)));
 }
 
 class _Loading extends StatelessWidget {
@@ -108,13 +114,15 @@ class _PlanBody extends ConsumerWidget {
   final WeeklyPlan plan;
   final List<String> warnings;
   final String? source;
-  const _PlanBody({required this.plan, required this.warnings, this.source});
+  final VoidCallback onCheckIn;
+  const _PlanBody({required this.plan, required this.warnings, this.source, required this.onCheckIn});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
+        if (_weekIsOver(plan.weekStart)) _NewWeekBanner(onCheckIn: onCheckIn),
         if (source == 'stub' || source == 'stub-fallback')
           _OfflineBanner(),
         RationaleCard(title: 'About this week', rationale: plan.rationale, initiallyExpanded: true),
@@ -122,6 +130,32 @@ class _PlanBody extends ConsumerWidget {
         const SizedBox(height: 8),
         for (final s in plan.sessions) _SessionTile(plan: plan, session: s),
       ],
+    );
+  }
+}
+
+class _NewWeekBanner extends StatelessWidget {
+  final VoidCallback onCheckIn;
+  const _NewWeekBanner({required this.onCheckIn});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            const Icon(Icons.event_available),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('A new week — ready for a quick check-in?',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            FilledButton(onPressed: onCheckIn, child: const Text('Check in')),
+          ],
+        ),
+      ),
     );
   }
 }
