@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/profile.dart';
 import '../state/providers.dart';
 import '../widgets/multi_select.dart';
+import 'locations_screen.dart';
 
 /// Profile editing + data ownership (PRD §5.1 edit-later, §9 export/delete, §10
 /// safety). Any change here is respected by the next plan generation.
@@ -60,19 +61,17 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: (v) => notifier.patch((p) => p.copyWith(sessionMinutes: v.round())),
           ),
 
-          _section(context, 'Equipment'),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final item in EquipmentCatalogue.all)
-                FilterChip(
-                  selected: profile.equipment.contains(item.id),
-                  label: Text('${item.emoji} ${item.label}'),
-                  onSelected: (_) =>
-                      notifier.patch((p) => p.copyWith(equipment: _toggled(p.equipment, item.id))),
-                ),
-            ],
+          _section(context, 'Equipment & locations'),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.fitness_center),
+              title: const Text('Set equipment by day'),
+              subtitle: Text(_equipSummary(profile)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LocationsScreen()),
+              ),
+            ),
           ),
 
           _section(context, 'Injuries & limitations'),
@@ -131,6 +130,17 @@ class SettingsScreen extends ConsumerWidget {
     final s = list.toList();
     s.contains(v) ? s.remove(v) : s.add(v);
     return s;
+  }
+
+  String _equipSummary(Profile p) {
+    final locs = p.effectiveLocations();
+    if (locs.length == 1) {
+      final eq = locs.first.equipment;
+      return eq.isEmpty
+          ? 'Bodyweight only — tap to add gear, or set it per day'
+          : '${eq.length} items — tap to vary it by day (gym / home / pool)';
+    }
+    return '${locs.map((l) => l.name).join(' · ')} — tap to edit';
   }
 
   Widget _section(BuildContext context, String title) => Padding(

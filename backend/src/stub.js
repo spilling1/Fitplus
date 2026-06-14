@@ -147,7 +147,14 @@ function generateStubPlan(ctx = {}) {
   const weekStart = ctx.weekStart || isoMonday(new Date());
   const level = profile.level || 'Beginner';
   const trainingDays = (profile.trainingDays && profile.trainingDays.length ? profile.trainingDays : ['Monday', 'Wednesday', 'Friday']);
-  const allowed = new Set(['bodyweight', ...equipment.map((e) => String(e).toLowerCase())]);
+  const equipmentByDay = ctx.equipmentByDay || null;
+  const allowedForDay = (day) => {
+    const list = (equipmentByDay && equipmentByDay[day] ? equipmentByDay[day] : equipment) || [];
+    const lower = list.map((e) => String(e).toLowerCase());
+    // "full gym" → make the whole exercise bank available.
+    if (lower.includes('full gym')) return new Set(['bodyweight', ...BANK.map((b) => b.equipment)]);
+    return new Set(['bodyweight', ...lower]);
+  };
   const sessionMinutes = profile.sessionMinutes || 45;
   const mainCount = sessionMinutes >= 50 ? 4 : 3;
 
@@ -165,7 +172,7 @@ function generateStubPlan(ctx = {}) {
         blocks: [],
       };
     }
-    const blocks = [warmupBlock(), { kind: 'main', exercises: pickMain(allowed, level, mainCount) }];
+    const blocks = [warmupBlock(), { kind: 'main', exercises: pickMain(allowedForDay(day), level, mainCount) }];
     if (sessionMinutes >= 40) blocks.push(coreFinisher());
     blocks.push(cooldownBlock());
     return {

@@ -94,7 +94,10 @@ async function handleGenerate(ctx) {
     source = 'stub';
   }
 
-  let { plan, warnings } = applyGuardrails(raw, { equipment: ctx.equipment || [] });
+  let { plan, warnings } = applyGuardrails(raw, {
+    equipment: ctx.equipment || [],
+    equipmentByDay: ctx.equipmentByDay || null,
+  });
 
   // Cap week-over-week progression against the previous plan if one was sent.
   if (ctx.previousPlan) {

@@ -52,7 +52,8 @@ class ApiClient {
   }) async {
     final body = {
       'profile': profile.toAiContext(),
-      'equipment': profile.equipment,
+      'equipment': profile.allEquipment(),
+      'equipmentByDay': profile.equipmentByDay(),
       if (weekStart != null) 'weekStart': weekStart,
       if (history != null) 'history': history,
       if (previousPlan != null) 'previousPlan': previousPlan.toJson(),

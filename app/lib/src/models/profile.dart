@@ -1,6 +1,28 @@
-/// User fitness profile + equipment (PRD §5.1, §5.2). Single equipment location
-/// for the MVP. Everything is optional/skippable; the AI fills gaps with
-/// sensible defaults.
+/// User fitness profile + equipment (PRD §5.1, §5.2).
+///
+/// Equipment is modelled as **training locations** (Home, Gym, Pool, …), each
+/// with its own gear, and a mapping of weekday -> location. This lets a user say
+/// "I'm at the gym Mon/Wed/Fri but home on Saturday" and have each session use
+/// the equipment they actually have that day. When no locations are configured
+/// the flat [equipment] list is used as a single implicit "Anywhere" location,
+/// so simple setups stay simple.
+
+class TrainingLocation {
+  final String name; // Home / Gym / Pool / Hotel
+  final List<String> equipment; // equipment ids available here
+
+  const TrainingLocation({required this.name, this.equipment = const []});
+
+  TrainingLocation copyWith({String? name, List<String>? equipment}) =>
+      TrainingLocation(name: name ?? this.name, equipment: equipment ?? this.equipment);
+
+  factory TrainingLocation.fromJson(Map<String, dynamic> j) => TrainingLocation(
+        name: j['name'] as String? ?? 'Anywhere',
+        equipment: (j['equipment'] as List?)?.cast<String>() ?? const [],
+      );
+
+  Map<String, dynamic> toJson() => {'name': name, 'equipment': equipment};
+}
 
 class Profile {
   final String? ageRange;
@@ -13,7 +35,9 @@ class Profile {
   final int sessionMinutes;
   final String? timePref;
   final List<String> injuries;
-  final List<String> equipment; // selected equipment types
+  final List<String> equipment; // default ("Anywhere") set, used when no locations
+  final List<TrainingLocation> locations; // optional per-place equipment
+  final Map<String, String> dayLocation; // weekday -> location name
   final String notes;
   final bool onboarded;
 
@@ -29,6 +53,8 @@ class Profile {
     this.timePref,
     this.injuries = const [],
     this.equipment = const [],
+    this.locations = const [],
+    this.dayLocation = const {},
     this.notes = '',
     this.onboarded = false,
   });
@@ -45,6 +71,8 @@ class Profile {
     String? timePref,
     List<String>? injuries,
     List<String>? equipment,
+    List<TrainingLocation>? locations,
+    Map<String, String>? dayLocation,
     String? notes,
     bool? onboarded,
   }) {
@@ -60,6 +88,8 @@ class Profile {
       timePref: timePref ?? this.timePref,
       injuries: injuries ?? this.injuries,
       equipment: equipment ?? this.equipment,
+      locations: locations ?? this.locations,
+      dayLocation: dayLocation ?? this.dayLocation,
       notes: notes ?? this.notes,
       onboarded: onboarded ?? this.onboarded,
     );
@@ -78,6 +108,10 @@ class Profile {
         timePref: j['timePref'] as String?,
         injuries: (j['injuries'] as List?)?.cast<String>() ?? const [],
         equipment: (j['equipment'] as List?)?.cast<String>() ?? const [],
+        locations: ((j['locations'] as List?) ?? [])
+            .map((e) => TrainingLocation.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        dayLocation: ((j['dayLocation'] as Map?) ?? {}).map((k, v) => MapEntry('$k', '$v')),
         notes: j['notes'] as String? ?? '',
         onboarded: j['onboarded'] as bool? ?? false,
       );
@@ -94,6 +128,8 @@ class Profile {
         'timePref': timePref,
         'injuries': injuries,
         'equipment': equipment,
+        'locations': locations.map((l) => l.toJson()).toList(),
+        'dayLocation': dayLocation,
         'notes': notes,
         'onboarded': onboarded,
       };
@@ -111,25 +147,92 @@ class Profile {
         'notes': notes,
         'units': units,
       };
+
+  // ---- Equipment resolution ----
+
+  /// Locations to actually use: configured ones, or a single implicit
+  /// "Anywhere" location from the flat [equipment] list.
+  List<TrainingLocation> effectiveLocations() => locations.isNotEmpty
+      ? locations
+      : [TrainingLocation(name: 'Anywhere', equipment: equipment)];
+
+  /// Which location a given day maps to (falls back to the first location).
+  String locationForDay(String day) {
+    final locs = effectiveLocations();
+    final assigned = dayLocation[day];
+    if (assigned != null && locs.any((l) => l.name == assigned)) return assigned;
+    return locs.first.name;
+  }
+
+  /// Equipment available on each training day: { Monday: [...], ... }.
+  Map<String, List<String>> equipmentByDay() {
+    final byName = {for (final l in effectiveLocations()) l.name: l.equipment};
+    final out = <String, List<String>>{};
+    for (final day in trainingDays) {
+      out[day] = byName[locationForDay(day)] ?? const [];
+    }
+    return out;
+  }
+
+  /// Union of all equipment across locations — used as the chat/global set.
+  List<String> allEquipment() =>
+      {for (final l in effectiveLocations()) ...l.equipment}.toList();
 }
 
-/// The pre-populated equipment catalogue (PRD §5.2). `bodyweight` is implicit
-/// and always available, so it's not in the selectable list.
+/// The pre-populated equipment catalogue (PRD §5.2), grouped for the picker.
+/// `bodyweight` is implicit and always available, so it's not selectable.
 class EquipmentCatalogue {
-  static const List<EquipmentItem> all = [
-    EquipmentItem('dumbbells', 'Dumbbells', '🏋️'),
-    EquipmentItem('barbell', 'Barbell + plates', '🏋️'),
-    EquipmentItem('kettlebells', 'Kettlebells', '🔔'),
-    EquipmentItem('resistance bands', 'Resistance bands', '➰'),
-    EquipmentItem('pull-up bar', 'Pull-up bar', '🚪'),
-    EquipmentItem('bench', 'Bench', '🪑'),
-    EquipmentItem('squat rack', 'Squat rack', '🗜️'),
-    EquipmentItem('cable machine', 'Cable machine', '🔧'),
-    EquipmentItem('treadmill', 'Treadmill / cardio machine', '🏃'),
-    EquipmentItem('medicine ball', 'Medicine ball', '⚽'),
-    EquipmentItem('yoga mat', 'Yoga mat', '🧘'),
-    EquipmentItem('jump rope', 'Jump rope', '🪢'),
+  static const List<EquipmentGroup> groups = [
+    EquipmentGroup('Free weights & basics', [
+      EquipmentItem('dumbbells', 'Dumbbells', '🏋️'),
+      EquipmentItem('barbell', 'Barbell + plates', '🏋️'),
+      EquipmentItem('kettlebells', 'Kettlebells', '🔔'),
+      EquipmentItem('resistance bands', 'Resistance bands', '➰'),
+      EquipmentItem('pull-up bar', 'Pull-up bar', '🚪'),
+      EquipmentItem('bench', 'Bench', '🪑'),
+      EquipmentItem('squat rack', 'Squat rack', '🗜️'),
+      EquipmentItem('medicine ball', 'Medicine ball', '⚽'),
+      EquipmentItem('yoga mat', 'Yoga mat', '🧘'),
+      EquipmentItem('jump rope', 'Jump rope', '🪢'),
+      EquipmentItem('dip bars', 'Dip bars', '🤸'),
+    ]),
+    EquipmentGroup('Gym machines', [
+      EquipmentItem('full gym', 'Full gym (all standard equipment)', '🏟️'),
+      EquipmentItem('cable machine', 'Cable machine', '🔧'),
+      EquipmentItem('smith machine', 'Smith machine', '🏗️'),
+      EquipmentItem('leg press', 'Leg press', '🦵'),
+      EquipmentItem('lat pulldown', 'Lat pulldown', '🔻'),
+      EquipmentItem('chest press machine', 'Chest press machine', '💪'),
+      EquipmentItem('leg curl machine', 'Leg curl', '🦿'),
+      EquipmentItem('leg extension machine', 'Leg extension', '🦵'),
+    ]),
+    EquipmentGroup('Cardio', [
+      EquipmentItem('treadmill', 'Treadmill', '🏃'),
+      EquipmentItem('peloton bike', 'Peloton bike', '🚴'),
+      EquipmentItem('peloton tread', 'Peloton tread', '🏃'),
+      EquipmentItem('stationary bike', 'Stationary bike', '🚲'),
+      EquipmentItem('spin bike', 'Spin bike', '🚴'),
+      EquipmentItem('rowing machine', 'Rowing machine (erg)', '🚣'),
+      EquipmentItem('elliptical', 'Elliptical', '🌀'),
+      EquipmentItem('pool', 'Pool (swimming)', '🏊'),
+    ]),
   ];
+
+  /// Flat list of every selectable item, across groups.
+  static List<EquipmentItem> get all => [for (final g in groups) ...g.items];
+
+  static String labelFor(String id) {
+    for (final it in all) {
+      if (it.id == id) return it.label;
+    }
+    return id;
+  }
+}
+
+class EquipmentGroup {
+  final String title;
+  final List<EquipmentItem> items;
+  const EquipmentGroup(this.title, this.items);
 }
 
 class EquipmentItem {

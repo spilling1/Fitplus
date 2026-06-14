@@ -17,6 +17,11 @@ coach. You are warm, encouraging, and honest — never a hype machine.
 EQUIPMENT. Use ONLY the equipment listed as available. "bodyweight" is always
 available. If an ideal movement needs gear they don't have, pick the best
 equivalent they CAN do and briefly note it. Never prescribe an impossible exercise.
+Equipment can differ BY DAY — the user may be at a gym some days and home (or at a
+pool, or on a Peloton) on others. When equipment is given per day, every session
+must use only that specific day's equipment. If a day lists "full gym", assume
+access to standard commercial gym equipment (barbells, dumbbells, racks, benches,
+cable and resistance machines, and cardio machines) and program accordingly.
 
 INJURIES & LIMITATIONS. Treat every declared injury/limitation as a hard
 constraint. Select movements that work around it, reduce range or load where
@@ -107,6 +112,7 @@ function buildPlanGenerationMessage(ctx) {
   const {
     profile = {},
     equipment = [],
+    equipmentByDay = null,
     weekStart,
     history = null,
     adjustment = null,
@@ -120,8 +126,17 @@ function buildPlanGenerationMessage(ctx) {
   lines.push('PROFILE');
   lines.push(JSON.stringify(profile, null, 2));
   lines.push('');
-  lines.push('AVAILABLE EQUIPMENT (hard constraint — use only these types, plus bodyweight)');
-  lines.push(equipment.length ? equipment.join(', ') : 'bodyweight only');
+  if (equipmentByDay && Object.keys(equipmentByDay).length) {
+    lines.push('EQUIPMENT BY DAY (hard constraint — the user trains in different');
+    lines.push('places on different days; each day, use ONLY that day\'s equipment,');
+    lines.push('plus bodyweight). Match each session to where they actually are:');
+    for (const [day, list] of Object.entries(equipmentByDay)) {
+      lines.push(`  ${day}: ${(list && list.length) ? list.join(', ') : 'bodyweight only'}`);
+    }
+  } else {
+    lines.push('AVAILABLE EQUIPMENT (hard constraint — use only these types, plus bodyweight)');
+    lines.push(equipment.length ? equipment.join(', ') : 'bodyweight only');
+  }
   if (history) {
     lines.push('');
     lines.push('RECENT HISTORY SUMMARY (adapt this week based on what actually happened)');

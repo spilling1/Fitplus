@@ -56,7 +56,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             currentPlan: plan,
             history: history.length > 1 ? history.sublist(0, history.length - 1) : const [],
             message: text,
-            equipment: ref.read(profileProvider).equipment,
+            equipment: ref.read(profileProvider).allEquipment(),
           );
 
       chat.add(ChatMessage(

@@ -42,11 +42,24 @@ function normaliseEquip(s) {
 
 // Enforce hard constraints and clamp values. Mutates a deep copy and returns
 // { plan, warnings } so the app can surface what was changed.
-function applyGuardrails(rawPlan, { equipment = [] } = {}) {
+//
+// equipment        — the global/fallback available set.
+// equipmentByDay   — optional map { Monday: [...], ... }. When present, each
+//                    session is validated against THAT day's equipment, so a
+//                    user who's home Saturday but at the gym midweek gets
+//                    movements that are actually possible on each day.
+function applyGuardrails(rawPlan, { equipment = [], equipmentByDay = null } = {}) {
   const plan = JSON.parse(JSON.stringify(rawPlan));
   const warnings = [];
 
-  const allowed = new Set(['bodyweight', ...equipment.map(normaliseEquip)]);
+  // Returns null when the day has a "full gym" (treat any movement as possible),
+  // otherwise the explicit allowed set.
+  const allowedFor = (day) => {
+    const list = (equipmentByDay && equipmentByDay[day] ? equipmentByDay[day] : equipment) || [];
+    const lower = list.map(normaliseEquip);
+    if (lower.includes('full gym')) return null;
+    return new Set(['bodyweight', ...lower]);
+  };
 
   for (const session of plan.sessions) {
     if (session.type === 'rest') {
@@ -54,14 +67,16 @@ function applyGuardrails(rawPlan, { equipment = [] } = {}) {
       continue;
     }
 
+    const allowed = allowedFor(session.day);
+
     // Equipment hard limit: any movement needing unavailable gear is downgraded
     // to bodyweight rather than silently prescribing something impossible.
     for (const block of session.blocks) {
       for (const ex of block.exercises) {
         const equip = normaliseEquip(ex.equipment);
-        if (equip && !allowed.has(equip)) {
+        if (allowed && equip && !allowed.has(equip)) {
           warnings.push(
-            `"${ex.name}" required ${ex.equipment}, which isn't available — substituted a bodyweight option.`,
+            `${session.day}: "${ex.name}" needed ${ex.equipment}, not available that day — substituted a bodyweight option.`,
           );
           ex.equipment = 'bodyweight';
           ex.target_load = 'bodyweight';
